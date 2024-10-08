@@ -84,7 +84,7 @@ assign tap_WE = (axil_state_r == AXIL_WRITE && awaddr >= 32'h0000_0020 && awaddr
 assign tap_EN = 1'b1;
 assign tap_Di = wdata;
 assign tap_A  = (axil_state_r == AXIL_WRITE && axis_state_r == AXIS_IDLE)? awaddr - 32'h0000_0020 : 
-                (axil_state_r == AXIL_RADDR && axis_state_r == AXIS_IDLE)? araddr - 32'h0000_0020 : 
+                (arvalid && axis_state_r == AXIS_IDLE)? araddr - 32'h0000_0020 : 
                 fir_count_r << 2; 
 
 
@@ -122,7 +122,7 @@ always @(*) begin
     if(axil_state_r == AXIL_WRITE && awaddr == 32'h0000_0000) begin
         ap_config_reg_w = wdata[2:0];
     end
-    else if(axil_state_r == AXIL_RDATA && araddr == 32'h0000_0000) begin
+    else if(rready == 1'b1 && araddr == 32'h0000_0000) begin
         ap_config_reg_w[1] = 1'b0; // write-one-clear 
     end
     else begin
@@ -149,6 +149,9 @@ always @(*) begin
     if(axis_state_r == AXIS_LOAD && ss_tvalid) begin
         if(write_pointer_r == 4'd10) write_pointer_w = 4'd0;
         else write_pointer_w = write_pointer_r + 4'd1;
+    end
+    else if(axis_state_r == AXIS_OUT &&  last_input_r == 1'b1) begin
+        write_pointer_w = 4'd0;
     end
 end
 
@@ -178,6 +181,7 @@ always @(*) begin
             read_pointer_w = read_pointer_r - 1'd1;
         end
     end
+    else read_pointer_w = 4'd0;
 end
 
 always @(posedge axis_clk or negedge axis_rst_n) begin
@@ -237,6 +241,7 @@ always @(*) begin
     last_input_w = last_input_r;
     if(axis_state_r == AXIS_LOAD) last_input_w = ss_tlast;
 end
+
 always @(posedge axis_clk or negedge axis_rst_n) begin
     if(~axis_rst_n) begin
         last_input_r <= 1'b0;
@@ -251,6 +256,9 @@ always @(*) begin
     
     if(ap_config_reg_r == 3'b001) begin
         rst_data_count_w = rst_data_count_r + 1'd1;
+    end
+    else if(ap_config_reg_r == 3'b100) begin
+        rst_data_count_w = 4'd0;
     end
 end
 
@@ -305,7 +313,12 @@ always @(*) begin
             end
         end
         AXIS_OUT: begin
-            axis_state_w = AXIS_LOAD;
+            if(last_input_r == 1'b1) begin
+                axis_state_w = AXIS_IDLE;
+            end
+            else begin
+                axis_state_w = AXIS_LOAD;
+            end
         end
     endcase
 end
@@ -324,12 +337,20 @@ always @(*) begin
             axil_state_w = AXIL_IDLE;
         end
         AXIL_RADDR: begin
-            if(rready) begin
+            if(arready) begin
                 axil_state_w = AXIL_RDATA;
+            end
+            else begin
+                axil_state_w = AXIL_RADDR;
             end
         end
         AXIL_RDATA: begin
-            axil_state_w = AXIL_IDLE;
+            if(rready) begin
+                axil_state_w = AXIL_IDLE;
+            end
+            else begin
+                axil_state_w = AXIL_RDATA;
+            end
         end
     endcase
 end
