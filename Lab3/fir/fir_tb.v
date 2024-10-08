@@ -152,10 +152,10 @@ module fir_tb
     reg signed [(pDATA_WIDTH-1):0] Din_list[0:(Data_Num-1)];
     reg signed [(pDATA_WIDTH-1):0] golden_list[0:(Data_Num-1)];
     reg error_coef;
-    //initial begin
-     //   $dumpfile("fir.vcd");
-      //  $dumpvars();
-    //end
+    initial begin
+        $dumpfile("fir.vcd");
+        $dumpvars();
+    end
     
     initial begin
         $fsdbDumpfile("fir.fsdb");
@@ -199,8 +199,9 @@ module fir_tb
         end
         $display("----check ap_idle = 0 before transmitting last data----");
         config_read_check(12'h00, 32'h00, 32'h0000_000f); // check idle = 0
-        arvalid <= 0;  // edit: no need to read 
-        ss_last(Din_list[(Data_Num-1)]);
+        arvalid <= 0;  // edit: no need to read
+        ss_tlast <= 1;
+        ss(Din_list[(Data_Num-1)]);
         $display("ss(Din_list[%d])",i);
         $display("------End the data input(AXI-Stream)------");
     end
@@ -298,17 +299,22 @@ module fir_tb
         input [31:0]        mask;
         begin
             arvalid <= 0;
+            rready <= 0;
             @(posedge axis_clk);
             arvalid <= 1; araddr <= addr;
-            rready <= 1;
+        
             @(posedge axis_clk);
             while (!rvalid) @(posedge axis_clk);
+            rready <= 1;
+            
             if( (rdata & mask) != (exp_data & mask)) begin
                 $display("ERROR: exp = %d, rdata = %d", exp_data, rdata);
                 error_coef <= 1;
             end else begin
                 $display("OK: exp = %d, rdata = %d", exp_data, rdata);
             end
+            @(posedge axis_clk);
+            rready <= 0;
         end
     endtask
 
@@ -333,13 +339,10 @@ module fir_tb
             ss_tdata  <= in3;
             @(posedge axis_clk);
 
-            wait(ss_tready);
-            ss_tlast <= 1;
-            @(posedge axis_clk);
+            while (!ss_tready) begin
+                @(posedge axis_clk);
+            end
             ss_tlast <= 0;
-            //while (!ss_tready) begin
-            //    @(posedge axis_clk);
-            //end
             
             
         end
