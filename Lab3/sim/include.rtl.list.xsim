@@ -1,3 +1,3 @@
 # design sources
-./rtl/fir.v
-./rtl/bram11.v
+../fir/fir.v
+../bram/bram11.v
