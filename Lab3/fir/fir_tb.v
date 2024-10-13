@@ -132,11 +132,11 @@ module fir_tb
     reg signed [(pDATA_WIDTH-1):0] golden_list[0:(Data_Num-1)];
 
     initial begin
-        // $dumpfile("fir.vcd");
-        // $dumpvars();
-        $fsdbDumpfile("fir.fsdb");
-        // $fsdbDumpvars(0, testbed, "+mda");
-        $fsdbDumpvars(0, fir_tb, "+mda");
+        $dumpfile("fir.vcd");
+        $dumpvars();
+        // For MobaXterm
+        //$fsdbDumpfile("fir.fsdb");
+        //$fsdbDumpvars(0, fir_tb, "+mda");
     end
 
 
